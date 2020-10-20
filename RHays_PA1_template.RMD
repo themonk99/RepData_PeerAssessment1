@@ -1,0 +1,157 @@
+---
+title: "Reproduceable Research - Assignment 2"
+author: "RHays"
+date: "10/17/2020"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+
+
+
+```{r}
+library(tidyverse)
+library(readr)
+library(ggplot2)
+activity_data <- read_csv("activity.csv")
+```
+## 1. Total number of steps taken per day
+
+```{r}
+steps_per_day <- activity_data %>%
+        filter(!is.na(steps)) %>% 
+           group_by(date) %>% 
+                summarize(steps = sum(steps)) %>%
+  print
+```
+
+## 2. Histogram of the total number of steps taken each day
+
+```{r}
+hist(steps_per_day$steps, xlab = "Steps per Day", main = "Total Steps per Day", col = "green")
+```
+```{r}
+mean_steps <- mean(steps_per_day$steps) %>% print()
+median_steps <- median(steps_per_day$steps) %>% print()
+```
+
+
+Mean Steps per day 10766.19
+Median Steps per day 10765
+
+
+## 3. What is the average daily activity pattern?
+```{r}
+interval_steps <- activity_data %>%
+  filter(!is.na(steps)) %>%
+  group_by(interval) %>%
+  summarize(steps = mean(steps))
+
+ggplot(interval_steps, aes(x=interval, y=steps)) +
+  geom_line(color = "blue")
+```
+
+
+Which 5-minute interval, on average across all the days in the dataset, contains the maximum number of steps?
+
+Interval 835 has the the most steps at 206.17
+
+```{r}
+interval_steps[which.max(interval_steps$steps),]
+```
+
+
+#Calculate and report the total number of missing values in the dataset 
+#Replace the NAs with the mean of exisiting Steps and Interval values
+#Create a new dataset that is equal to the original dataset but with the missing data filled in.
+```{r}
+activity_data_na_populated <- activity_data
+     nas <- sum(is.na(activity_data_na_populated$steps)) %>% print()
+          avg_interval <- tapply(activity_data_na_populated$steps, activity_data_na_populated$interval, mean,                 na.rm=TRUE, simplify=TRUE)
+          
+activity_data_na_populated$steps[nas] <- avg_interval[as.character(activity_data_na_populated$interval[nas])]
+View(activity_data_na_populated)
+```
+
+# Caluclate the total number of steps taken each day in the new data set 
+
+```{r}
+no_na_steps_per_day <- activity_data_na_populated %>%
+        filter(!is.na(steps)) %>% 
+           group_by(date) %>% 
+                summarize(steps = sum(steps)) %>% print()
+```
+## Make a histogram of the total number of steps taken each day and calculate and report the mean and median total number of steps taken per day. 
+```{r}
+hist(no_na_steps_per_day$steps, xlab = "Steps per Day", main = "Total Steps per Day", col = "blue")
+```
+
+## Calculate and report the mean and median total number of steps taken per day
+
+```{r}
+mean_steps <- mean(no_na_steps_per_day$steps) %>% print()
+median_steps <- median(no_na_steps_per_day$steps) %>% print()
+
+```
+
+## Do these values differ from the estimates from the first part of the assignment?
+
+The median calculations were the same for each data set. The mean was slightly lower in the second data set, by just 83.5 steps.
+
+Calculations excluding NAs
+[1] 10766.19
+[1] 10765
+
+Calculations Imputing NAs
+[1] 10566.83
+[1] 10682.5
+
+
+```{r}
+par(mfrow = c(1,2))
+hist(steps_per_day$steps, xlab = "Steps per Day", main = "Total Steps per Day no NAs", col = "green")
+hist(no_na_steps_per_day$steps, xlab = "Steps per Day", main = "Total Steps per Day NAs Imputed", col = "blue")
+```
+
+##What is the impact of imputing missing data on the estimates of the total daily number of steps?
+```{r}
+step_diff <- sum(activity_data$steps, na.rm=T) - sum(activity_data_na_populated$steps, na.rm=T)
+print(step_diff)
+```
+
+There is a difference of -1.075472 in the total steps between the two data-sets.
+
+
+## Are there differences in activity patterns between weekdays and weekends?
+1. Create a new factor variable based on Weekday vs Weekend
+2. Transform dayType variable into factor
+```{r}
+DayType <- function(date) {
+  day <- weekdays(date)
+  if (day %in% c('Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday'))
+      return ("Weekday")
+  else if (day %in% c('Saturday', 'Sunday'))
+      return ("Weekend")
+  else
+      stop ("Invalid Date Format.")
+}
+activity_data_na_populated$date <- as.Date(activity_data_na_populated$date)
+activity_data_na_populated$day <- sapply(activity_data_na_populated$date, FUN = DayType)
+unique(activity_data_na_populated$day)
+```
+
+```{r}
+meanStepsByDay <- aggregate(steps ~ interval + day, activity_data_na_populated, mean)
+ggplot(data = meanStepsByDay, aes(x = interval, y = steps)) + 
+  geom_line() +
+  facet_grid(day ~ .) +
+  ggtitle("Average Daily Activity Pattern") +
+  xlab("5-minute Interval") +
+  ylab("Average Number of Steps") +
+  theme(plot.title = element_text(hjust = 0.5))
+```
+
+Activity has an earlier start in the weekdays with a peak between 8AM and 9AM. On weekends, the activity starts later and does not have a peak between 8AM and 9AM, but does remain higher, on average, throughout weekends.
